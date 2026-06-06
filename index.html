@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;">
-<!-- v9 -->
+<!-- v10 -->
 <title>FIFA World Cup 2026 - Bracket Challenge</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
 <!-- Firebase via REST API - no external SDK scripts needed -->
@@ -449,30 +449,7 @@ function defaultPred() {
 }
 
 // ===================== INIT =====================
-waitForFb(async () => {
-  fbReady = true;
-  setSyncStatus('ok', 'Connected to Firebase');
-
-  // Load shared results
-  const resData = await window._fb.fbLoadResults();
-  if (resData) {
-    results.groups = resData.groups || {};
-    results.ko = resData.ko || {r32:[],r16:[],qf:[],sf:[],final:[],champion:""};
-  }
-
-  // If returning player, load their prediction
-  if (currentPlayerName) {
-    const saved = await window._fb.fbLoadPrediction(currentPlayerName);
-    myPred = saved ? { groups: saved.groups || {}, ko: saved.ko || {r32:[],r16:[],qf:[],sf:[],final:[],champion:""}, thirdPlace: saved.thirdPlace || [] }
-                   : defaultPred();
-    // fill any missing groups
-    GROUP_KEYS.forEach(g => { if (!myPred.groups[g]) myPred.groups[g] = GROUPS[g].teams.map(t=>t.name); });
-  }
-
-  document.getElementById('loading-overlay').style.display = 'none';
-  loadApiKey();
-  render();
-});
+// boot() called below after DOM ready
 
 // ===================== SYNC STATUS =====================
 function setSyncStatus(state, msg) {

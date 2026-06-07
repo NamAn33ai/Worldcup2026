@@ -272,6 +272,7 @@ document.dispatchEvent(new Event('fbReady'));
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
         <input type="text" id="apiKeyInput" placeholder="Paste API-Football key..." oninput="saveApiKey()" class="admin-input" style="flex:1;min-width:200px;"/>
         <button class="btn btn-gold" onclick="fetchR32Bracket()" id="fetchBracketBtn">&#9889; Fetch R32 Matchups</button>
+        <button class="btn btn-outline" onclick="fillSampleTeams()" id="sampleBtn">&#129514; Fill Sample Teams (test)</button>
         <span id="fetch-bracket-status" style="font-family:'Barlow Condensed',sans-serif;font-size:0.8rem;color:var(--muted);"></span>
       </div>
       <div id="admin-r32-editor"></div>
@@ -286,6 +287,8 @@ document.dispatchEvent(new Event('fbReady'));
       <div style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;">As knockout matches finish, click the actual winners below (or use Fetch to auto-pull). This is what everyone is scored against.</div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
         <button class="btn btn-gold" onclick="fetchKoResults()" id="fetchResultsBtn">&#9889; Fetch Results</button>
+        <button class="btn btn-outline" onclick="randomizeResults()">&#127922; Random Results (test)</button>
+        <button class="btn btn-outline" onclick="clearResults()">&#128465; Clear Results (test)</button>
         <span id="fetch-results-status" style="font-family:'Barlow Condensed',sans-serif;font-size:0.8rem;color:var(--muted);"></span>
       </div>
       <div id="admin-results-bracket"></div>
@@ -319,8 +322,7 @@ const FLAG_MAP = {
   "France":"fr","Senegal":"sn","Norway":"no","Iraq":"iq",
   "Argentina":"ar","Algeria":"dz","Austria":"at","Jordan":"jo",
   "Portugal":"pt","Colombia":"co","DR Congo":"cd","Congo DR":"cd","Uzbekistan":"uz",
-  "England":"gb-eng","Croatia":"hr","Ghana":"gh","Panama":"pa",
-  "Wales":"gb-wls","Italy":"it","Nigeria":"ng","Cameroon":"cm","Denmark":"dk","Poland":"pl","Mali":"ml","Ukraine":"ua"
+  "England":"gb-eng","Croatia":"hr","Ghana":"gh","Panama":"pa"
 };
 function flagImg(code) {
   if (!code) return '<span style="display:inline-block;width:21px;height:15px;background:#2A2B38;border-radius:2px;vertical-align:middle;"></span>';
@@ -581,6 +583,64 @@ function renderAdmin() {
   }
   renderAdminR32Editor();
   renderAdminResults();
+}
+
+// ---- TEST HELPERS (for trying out functionality without the API) ----
+// Fill the 32 R32 slots with 32 real WC2026 qualified team names so you can test the full flow.
+function fillSampleTeams() {
+  // 32 teams drawn only from the actual 48 WC2026 qualifiers
+  const sample = [
+    "Netherlands","Japan","Mexico","South Korea",
+    "Brazil","Morocco","Germany","Ivory Coast",
+    "France","Senegal","Spain","Uruguay",
+    "Argentina","Algeria","Portugal","Colombia",
+    "England","Croatia","Belgium","Egypt",
+    "United States","Australia","Canada","Switzerland",
+    "Sweden","Ecuador","Norway","Austria",
+    "Iran","Paraguay","Ghana","Panama"
+  ];
+  if (!adminBracket) adminBracket = { r32: new Array(32).fill('') };
+  adminBracket.r32 = sample.slice();
+  renderAdminR32Editor();
+  const s = document.getElementById('fetch-bracket-status');
+  s.style.color = 'var(--green)';
+  s.textContent = 'Sample teams filled - click Publish to test';
+}
+
+// Randomly pick winners through every round of the RESULTS bracket (for testing scoring).
+function randomizeResults() {
+  if (!bracket || !bracket.r32 || bracket.r32.length!==32) {
+    const s=document.getElementById('fetch-results-status'); s.style.color='#f59e0b'; s.textContent='Publish a bracket first'; return;
+  }
+  adminResults = emptyKO();
+  adminResults.r32 = bracket.r32.slice();
+  // walk rounds, picking a random winner from each match's two teams
+  ['r32','r16','qf','sf','final'].forEach(rid => {
+    const src = adminResults[rid] || [];
+    const nr = getNextRound(rid);
+    const nMatches = src.length/2;
+    for (let i=0;i<nMatches;i++) {
+      const a = src[i*2], b = src[i*2+1];
+      if (!a || !b) continue;
+      const w = Math.random()<0.5 ? a : b;
+      if (nr==='champion') adminResults.champion = w;
+      else { if(!adminResults[nr]) adminResults[nr]=[]; adminResults[nr][i]=w; }
+    }
+  });
+  // 3rd place: a random one of the two SF losers
+  const sfT = adminResults.sf||[], sfW = adminResults.final||[];
+  const l0 = sfW[0]===sfT[0]?sfT[1]:sfT[0];
+  const l1 = sfW[1]===sfT[2]?sfT[3]:sfT[2];
+  if (l0 && l1) adminResults.third_place = [Math.random()<0.5?l0:l1];
+  renderAdminResults();
+  const s=document.getElementById('fetch-results-status'); s.style.color='var(--green)'; s.textContent='Random results generated - click Save Results to test scoring';
+}
+
+function clearResults() {
+  adminResults = emptyKO();
+  if (bracket && bracket.r32) adminResults.r32 = bracket.r32.slice();
+  renderAdminResults();
+  const s=document.getElementById('fetch-results-status'); s.style.color='var(--muted)'; s.textContent='Results cleared (not yet saved)';
 }
 
 // Step 1: editable 16 R32 matchups (8 text inputs per column = 32 teams)

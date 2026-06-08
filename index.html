@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;">
-<!-- v18-multigroup -->
+<!-- v17-ko-only -->
 <title>FIFA World Cup 2026 - Knockout Bracket Challenge</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
 <script>
@@ -15,22 +15,6 @@
 const FB_PROJECT = 'worlcup26-bracket';
 const FB_API_KEY = 'AIzaSyAftp5zTkmJE-kuQZgm_A7bxSmcYGqyLCI';
 const FB_BASE = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
-
-// ===================== GROUP SCOPING =====================
-// Each group is fully independent (own bracket, results, predictions, leaderboard).
-// Join via URL e.g. ?group=family  (defaults to "main").
-function getGroupCode() {
-  try {
-    const p = new URLSearchParams(window.location.search);
-    let g = (p.get('group') || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    return g || 'main';
-  } catch(e) { return 'main'; }
-}
-function isAdminMode() {
-  try { return new URLSearchParams(window.location.search).get('admin') === '1'; }
-  catch(e) { return false; }
-}
-var GROUP_CODE = getGroupCode();
 
 function toFS(val) {
   if (val === null || val === undefined) return { nullValue: null };
@@ -109,22 +93,18 @@ async function fsGetAll(collection) {
 }
 window._fb = {
   async fbSavePrediction(playerName, data) {
-    const key = GROUP_CODE + '__' + playerName.toLowerCase().replace(/\s+/g, '_');
-    await fsSet('ko_predictions', key, { name: playerName, group: GROUP_CODE, ...data, updatedAt: Date.now() });
+    const key = playerName.toLowerCase().replace(/\s+/g, '_');
+    await fsSet('ko_predictions', key, { name: playerName, ...data, updatedAt: Date.now() });
   },
   async fbLoadPrediction(playerName) {
-    const key = GROUP_CODE + '__' + playerName.toLowerCase().replace(/\s+/g, '_');
+    const key = playerName.toLowerCase().replace(/\s+/g, '_');
     return await fsGet('ko_predictions', key);
   },
-  async fbSaveResults(data) { await fsSet('ko_shared', GROUP_CODE + '__results', { group: GROUP_CODE, ...data, updatedAt: Date.now() }); },
-  async fbLoadResults() { return await fsGet('ko_shared', GROUP_CODE + '__results'); },
-  async fbSaveBracket(data) { await fsSet('ko_shared', GROUP_CODE + '__bracket', { group: GROUP_CODE, ...data, updatedAt: Date.now() }); },
-  async fbLoadBracket() { return await fsGet('ko_shared', GROUP_CODE + '__bracket'); },
-  async fbLoadAllPredictions() {
-    const all = await fsGetAll('ko_predictions');
-    // only this group's players (keyed/prefixed by group)
-    return all.filter(p => p && p.group === GROUP_CODE);
-  }
+  async fbSaveResults(data) { await fsSet('ko_shared', 'results', { ...data, updatedAt: Date.now() }); },
+  async fbLoadResults() { return await fsGet('ko_shared', 'results'); },
+  async fbSaveBracket(data) { await fsSet('ko_shared', 'bracket', { ...data, updatedAt: Date.now() }); },
+  async fbLoadBracket() { return await fsGet('ko_shared', 'bracket'); },
+  async fbLoadAllPredictions() { return await fsGetAll('ko_predictions'); }
 };
 window._fbReady = true;
 document.dispatchEvent(new Event('fbReady'));
@@ -229,7 +209,7 @@ document.dispatchEvent(new Event('fbReady'));
   <div class="header-inner">
     <div class="logo-block">
       <h1>&#9917; World Cup 2026</h1>
-      <p>Knockout Bracket Challenge &middot; <span id="group-label"></span></p>
+      <p>Knockout Bracket Challenge</p>
     </div>
     <div class="header-controls">
       <div class="player-input-area">
@@ -248,7 +228,7 @@ document.dispatchEvent(new Event('fbReady'));
 <div class="tabs">
   <button class="tab active" onclick="showTab('bracket',this)">My Bracket</button>
   <button class="tab" onclick="showTab('leaderboard',this)">&#127942; Leaderboard</button>
-  <button class="tab" id="admin-tab-btn" style="display:none;" onclick="showTab('admin',this)">&#128272; Admin</button>
+  <button class="tab" onclick="showTab('admin',this)">&#128272; Admin</button>
 </div>
 
 <div class="main">
@@ -379,7 +359,7 @@ async function addPlayer() {
   const name = (input.value||'').trim();
   if (!name) return;
   currentPlayer = name;
-  localStorage.setItem('wc_ko_myname_'+GROUP_CODE, name);
+  localStorage.setItem('wc_ko_myname', name);
   input.value = '';
   setSyncStatus('saving','Loading your picks...');
   try {
@@ -403,7 +383,7 @@ async function addPlayer() {
 
 function switchPlayer(name) {
   currentPlayer = name;
-  localStorage.setItem('wc_ko_myname_'+GROUP_CODE, name);
+  localStorage.setItem('wc_ko_myname', name);
   renderPlayerTabs();
   renderBracket();
 }
@@ -434,7 +414,6 @@ function renderPlayerTabs() {
 
 // ===================== TABS =====================
 function showTab(tabId, btn) {
-  if (tabId==='admin' && !isAdminMode()) return; // admin tab only in ?admin=1 mode
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
@@ -856,13 +835,6 @@ async function fetchKoResults() {
 // ===================== BOOT =====================
 async function boot() {
   const diag = document.getElementById('load-diag');
-  // Show which group this is, and reveal Admin tab only in admin mode (?admin=1)
-  const gl = document.getElementById('group-label');
-  if (gl) gl.textContent = 'Group: ' + GROUP_CODE;
-  if (isAdminMode()) {
-    const at = document.getElementById('admin-tab-btn');
-    if (at) at.style.display = '';
-  }
   try {
     diag.textContent = 'Loading bracket...';
     const bData = await window._fb.fbLoadBracket();
@@ -871,7 +843,7 @@ async function boot() {
     const rData = await window._fb.fbLoadResults();
     if (rData && rData.ko) results.ko = Object.assign(emptyKO(), rData.ko);
     // returning player?
-    const savedName = localStorage.getItem('wc_ko_myname_'+GROUP_CODE);
+    const savedName = localStorage.getItem('wc_ko_myname');
     if (savedName) {
       currentPlayer = savedName;
       try {
@@ -881,7 +853,7 @@ async function boot() {
       } catch(e) { predictions[savedName] = defaultPred(); }
       if (!players.find(p=>p.name===savedName)) players.push({name:savedName});
     }
-    setSyncStatus('ok', bracket ? 'Connected - Group: '+GROUP_CODE : 'Connected - waiting for bracket');
+    setSyncStatus('ok', bracket ? 'Connected' : 'Connected - waiting for bracket');
   } catch(e) {
     setSyncStatus('err','Firebase error: '+e.message);
     diag.textContent = 'Error: '+e.message+' (the app will still load)';

@@ -16,6 +16,7 @@ const FB_PROJECT = 'worlcup26-bracket';
 const FB_API_KEY = 'AIzaSyAftp5zTkmJE-kuQZgm_A7bxSmcYGqyLCI';
 const FB_BASE = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
 
+
 function toFS(val) {
   if (val === null || val === undefined) return { nullValue: null };
   if (typeof val === 'boolean') return { booleanValue: val };
